@@ -65,7 +65,7 @@
         dictd = _: prev: {
           dictdDBs.oewn = self.packages.${prev.stdenv.hostPlatform.system}.dictdDBs.oewn;
         };
-        default = self.overlays.oewn;
+        default = final: prev: self.overlays.oewn final prev // self.overlays.dictd final prev;
       };
     };
 }
