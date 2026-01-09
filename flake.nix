@@ -62,7 +62,9 @@
       );
       overlays = {
         oewn = _: prev: { oewn = self.packages.${prev.stdenv.hostPlatform.system}.oewn; };
-        dictd = _: prev: { oewn = self.packages.${prev.stdenv.hostPlatform.system}.dictdDBs.oewn; };
+        dictd = _: prev: {
+          dictdDBs.oewn = self.packages.${prev.stdenv.hostPlatform.system}.dictdDBs.oewn;
+        };
         default = self.overlays.oewn;
       };
     };
