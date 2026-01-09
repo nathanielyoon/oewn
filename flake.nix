@@ -4,7 +4,7 @@
     { self, nixpkgs }:
     {
       packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
-        default =
+        oewn =
           let
             pkgs = nixpkgs.legacyPackages.${system};
             files = "${builtins.placeholder "out"}/dict/data";
@@ -59,6 +59,7 @@
               dictzip ${dictd}/oewn.data
             '';
           };
+        default = self.packages.oewn;
       });
       overlays = {
         oewn = _: prev: { oewn = self.packages.${prev.stdenv.hostPlatform.system}.oewn; };
