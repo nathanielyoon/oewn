@@ -56,7 +56,7 @@
                   --check <(echo "2d8d434b8ef78783a94f0b6d5fc642bfc4108f9db5c25cef48b2494fac7b4298  -")
 
               # Compress data file.
-              dictzip ${dictd}/oewn.data
+              dictzip --keep ${dictd}/oewn.data
             '';
           };
         default = self.packages.oewn;
