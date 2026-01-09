@@ -59,7 +59,7 @@
               dictzip --keep ${dictd}/oewn.data
             '';
           };
-        default = self.packages.oewn;
+        default = self.packages.${system}.oewn;
       });
       overlays = {
         oewn = _: prev: { oewn = self.packages.${prev.stdenv.hostPlatform.system}.oewn; };
