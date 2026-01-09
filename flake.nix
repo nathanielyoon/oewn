@@ -43,7 +43,7 @@
               source_date=$(date --utc --date="@$SOURCE_DATE_EPOCH" '+%F %T')
               faketime -f "$source_date" python ${convert} \
                   --outindex="${dictd}/oewn.index" \
-                  --outdata="${dictd}/oewn.data" \
+                  --outdata="${dictd}/oewn.dict" \
                   --wn_url="https://en-word.net/" \
                   --db_desc_short="Open English WordNet" \
                   --db_desc_long="Open English WordNet (2025-plus edition), a fork of the Princeton WordNet." \
@@ -52,11 +52,12 @@
 
               # Check hash.
               cd ${builtins.placeholder "out"}
+              find . -type f | sort | xargs sha256sum | sha256sum
               find . -type f | sort | xargs sha256sum | sha256sum \
-                  --check <(echo "2d8d434b8ef78783a94f0b6d5fc642bfc4108f9db5c25cef48b2494fac7b4298  -")
+                  --check <(echo "284b978a3d1075d6d9944c69a364bf97ca7479832247a483c95b5f26133e4fdc  -")
 
               # Compress data file.
-              dictzip --keep ${dictd}/oewn.data
+              dictzip --keep ${dictd}/oewn.dict
             '';
           };
         default = self.packages.${system}.oewn;
