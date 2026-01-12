@@ -93,7 +93,12 @@
               chmod u+x "$out/bin/oewn"
             '';
           };
+          default = self.packages.oewn;
         }
       );
+      overlays = {
+        oewn = _: prev: { oewn = self.packages.${prev.stdenv.hostPlatform.system}.oewn; };
+        default = self.overlays.oewn;
+      };
     };
 }
