@@ -7,65 +7,93 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          version = "2025-plus";
-          files = "${builtins.placeholder "out"}/dict";
-          dictd = "${builtins.placeholder "out"}/share/dictd";
         in
         {
           oewn = pkgs.stdenvNoCC.mkDerivation {
             pname = "oewn";
-            inherit version;
-            src = pkgs.fetchzip {
-              url = "https://en-word.net/static/english-wordnet-${version}.zip";
-              hash = "sha256-0Fxb9oWXh5/B5XeHxzPFlJANxyXNr0I7VKtrT4h3Xhc=";
+            version = "2025";
+            src = builtins.fetchGit {
+              url = "git@github.com:globalwordnet/english-wordnet.git";
+              rev = "4136856654f476aca21a39b8c969a763b866dda4";
             };
-            installPhase = ''
-              mkdir -p ${files}
-              for data_file in data.*; do
-                  for file in "''${data_file//data/index}" "$data_file"; do
-                      target="${files}/''${file##*/}"
-                      # Avoid errors from parsing extra trailing linefeeds.
-                      tr -s '\n' <"$file" >"$target"
-                  done
-              done
-            '';
-          };
-          dictdDBs.oewn = pkgs.stdenvNoCC.mkDerivation {
-            pname = "dictd-db-oewn";
-            inherit version;
-            src = ./wordnet_structures.py;
-            dontUnpack = true;
             nativeBuildInputs = [
               pkgs.python3
-              pkgs.libfaketime
+              pkgs.python3Packages.pyyaml
+              pkgs.yq-go
+              pkgs.jaq
             ];
-            installPhase = ''
-              args=""
-              for data_file in ${self.packages.${system}.oewn}/dict/data.*; do
-                  args="$args ''${data_file//data/index} $data_file"
-              done
+            buildPhase = ''
+              mkdir -p "$out/share"
 
-              mkdir -p ${dictd}
-              source_date=$(date --utc --date="@$SOURCE_DATE_EPOCH" '+%F %T')
-              faketime -f "$source_date" python $src \
-                  --outindex="${dictd}/oewn.index" \
-                  --outdata="${dictd}/oewn.dict" \
-                  --wn_url="https://en-word.net/" \
-                  --db_desc_short="Open English WordNet" \
-                  --db_desc_long="Open English WordNet (2025-plus edition), a fork of the Princeton WordNet." \
-                  $args
-              echo "en_US.UTF-8" >"${dictd}/locale"
+              echo "yaml -> xml"
+              python3 scripts/from_yaml.py --year=2025
+
+              echo "xml -> json"
+              yq --input-format=xml --output-format=json --xml-attribute-prefix="" --xml-content-name=_ '.LexicalResource.Lexicon' wn.xml >wn.json
+
+              echo "json -> tsv"
+              # shellcheck disable=SC2016
+              jaq --raw-output 'def flat: flatten | map(values | if isobject then "\(._) (\(.[keys[] | select(. != "_")]))" else . end); {
+                  synsets: .Synset | map({
+                      key: .id,
+                      value: {
+                          definition: .Definition,
+                          members: .members | split(" "),
+                          examples: .Example | flat
+                      }
+                  }) | from_entries,
+                  entries: .LexicalEntry | map({
+                      key: .id,
+                      value: {
+                          form: .Lemma.writtenForm,
+                          part: {
+                              n: "noun",
+                              v: "verb",
+                              a: "adjective",
+                              r: "adverb",
+                              s: "adjective satellite",
+                              c: "conjunction",
+                              p: "adposition",
+                              x: "other",
+                              u: "unknown"
+                          }[.Lemma.partOfSpeech],
+                          pronunciation: .Lemma.Pronunciation | flat | join("/"),
+                          senses: .Sense | flatten | map(.synset)
+                      }
+                  }) | from_entries
+              } as $root | $root.entries | to_entries[] | [
+                  .value.form,
+                  .value.part,
+                  .value.pronunciation,
+                  (.key as $id | [$root.synsets[.value.senses[]] | [
+                      .definition,
+                      [.members[] | $root.entries[select(. != $id)].form],
+                      .examples
+                  ]] | tojson)
+              ] | @tsv' wn.json >"$out/share/oewn.tsv"
+            '';
+            installPhase = ''
+              mkdir -p "$out/bin"
+
+              cat >"$out/bin/oewn" <<EOF
+              #!/usr/bin/env bash
+
+              # shellcheck disable=SC2016
+              shuf $out/share/oewn.tsv | fzf --query="\$*" --delimiter='\t' --with-nth=1 --preview-border=none --preview='
+                  printf {2}
+                  if [[ -n {3} ]]; then printf '\''' (%s)'\''' {3}; fi
+                  printf '\'''\n\n'\'''
+
+                  count=\$(jaq '\'''length'\''' <<<{4})
+                  outer=\$((FZF_PREVIEW_COLUMNS - count / 10))
+                  inner=\$((outer - 2))
+                  jaq --raw-output '\'''.[] | "\(.[0])\(if .[1] | length == 0 then "" else " [\(.[1] | join(", "))]" end)\(.[2] | map("\n\(tojson)") | join(""))\n"'\''' <<<{4} | fold --spaces --width=\$FZF_PREVIEW_COLUMNS
+              ' --preview-window='down,75%,wrap'
+              EOF
+              chmod u+x "$out/bin/oewn"
             '';
           };
-          default = self.packages.${system}.oewn;
         }
       );
-      overlays = {
-        oewn = _: prev: { oewn = self.packages.${prev.stdenv.hostPlatform.system}.oewn; };
-        dictd = _: prev: {
-          dictdDBs.oewn = self.packages.${prev.stdenv.hostPlatform.system}.dictdDBs.oewn;
-        };
-        default = final: prev: self.overlays.oewn final prev // self.overlays.dictd final prev;
-      };
     };
 }
