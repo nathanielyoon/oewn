@@ -12,9 +12,11 @@
           oewn = pkgs.stdenvNoCC.mkDerivation {
             pname = "oewn";
             version = "2025";
-            src = builtins.fetchGit {
-              url = "git@github.com:globalwordnet/english-wordnet.git";
+            src = pkgs.fetchFromGitHub {
+              owner = "globalwordnet";
+              repo = "english-wordnet";
               rev = "4136856654f476aca21a39b8c969a763b866dda4";
+              hash = "sha256-FOLeTre3ApPQm/ss3NHSA8VMQAtCzaTEqm4rf65tWS4=";
             };
             nativeBuildInputs = [
               pkgs.python3
