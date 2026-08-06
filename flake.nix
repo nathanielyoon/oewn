@@ -9,6 +9,29 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
+          next = pkgs.stdenvNoCC.mkDerivation {
+            pname = "oewn";
+            version = "2026";
+            src = pkgs.fetchFromGitHub {
+              owner = "globalwordnet";
+              repo = "english-wordnet";
+              rev = "02ff9f3f5bc0a25592e7263ffdbc9bcb6564936b";
+              hash = "sha256-6mjRxXk0JotkuOOrpmdNAXIaDK0MT9vBfPr1Qiy5e+o=";
+            };
+            nativeBuildInputs = [
+              pkgs.python3
+              pkgs.python3Packages.pyyaml
+              pkgs.jaq
+            ];
+            buildPhase = ''
+              mkdir -p $out/share
+
+              echo "yaml -> xml"
+              python3 scripts/from_yaml.py --year 2026 --verbose
+
+              tail -n+3 wn.xml | jaq --from xml -r '.'
+            '';
+          };
           oewn = pkgs.stdenvNoCC.mkDerivation {
             pname = "oewn";
             version = "2025";
